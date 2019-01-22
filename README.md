@@ -1,4 +1,5 @@
-
+[![Build Status](https://travis-ci.org/pahud/eks-lambda-drainer.svg?branch=master)](https://travis-ci.org/pahud/eks-lambda-drainer)
+[![Go Report Card](https://goreportcard.com/badge/github.com/pahud/eks-lambda-drainer)](https://goreportcard.com/report/github.com/pahud/eks-lambda-drainer)
 
 # eks-lambda-drainer
 
@@ -8,31 +9,36 @@
 
 # Installation
 
-Install [SAM CLI](https://github.com/awslabs/aws-sam-cli) and [go dep](https://golang.github.io/dep/docs/installation.html)
+1. `git clone` to check out the repository to local and `cd` to the directory
 
-1. execute `dep ensure -v`to make sure all packages required can be downloaded to local
+2. run `dep ensure -v` to install required go packages - you might need to install [go dep](https://golang.github.io/dep/docs/installation.html) first.
 
-2. just type `make` to buiild the `main.zip` for Lambda
+3. edit `Makefile` and update **S3TMPBUCKET** variable:
 
-3. `sam package` to package the lambda bundle
+modify this to your private S3 bucket you have read/write access to
+```
+S3TMPBUCKET ?= pahud-temp
+```
 
-   ```
-   sam package \
-     --template-file sam.yaml \
-     --output-template-file sam-packaged.yaml \
-     --s3-bucket pahud-tmp
-   ```
+4. type `make world` to build, pack, package and deploy to Lambda
+```
+pahud:~/go/src/eks-lambda-drainer (master) $ make world
+Checking dependencies...
+Building...
+Packing binary...
+updating: main (deflated 73%)
+sam packaging...
+Uploading to a33bb95c227378e21102db1274f5dffd  8423458 / 8423458.0  (100.00%)
+Successfully packaged artifacts and wrote output template to file sam-packaged.yaml.
+Execute the following command to deploy the packaged template
+aws cloudformation deploy --template-file /home/ec2-user/go/src/eks-lambda-drainer/sam-packaged.yaml --stack-name <YOUR STACK NAME>
+sam deploying...
 
-   (change **pahud-tmp** to your temporary S3 bucket name)
+Waiting for changeset to be created..
+Waiting for stack create/update to complete
+Successfully created/updated stack - eks-lambda-drainer
+```
 
-4. `sam deploy` to deploy to AWS Lambda 
-
-   ```
-   sam deploy \
-   > --template-file sam-packaged.yaml \
-   > --stack-name eks-lambda-drainer \
-   > --capabilities CAPABILITY_IAM
-   ```
 
 
 # Add Lambda Role into ConfigMap
@@ -57,6 +63,11 @@ You can get the `rolearn` from the output tab of cloudformation console.
 
 
 
+# Autoscaling Group LifecycleHook Support
+
+By creating your nodegroup with this cloudformation template, your autoscaling group will have a LifecycleHook to a specific SNS topic and eventually invoke **eks-lambda-drainer** to drain the pods from the terminating node. Your node will first enter the **Terminating:Wait** state and after a pre-defined graceful period of time(default: 10 seconds), **eks-lambda-drainer** will put **CompleteLifecycleAction** back to the hook and Autoscaling group therefore move on to the **Terminaing:Proceed** phase to execute the real termination process. The Pods in the terminating node will be rescheduled to other node(s) just in a few seconds. Your service will have almost zero impact.
+
+
 
 
 # In Actions
@@ -77,7 +88,7 @@ try `kubectl describe` this node and see the `Taints` on it
 
 - [x] package the Lambda function in [AWS SAM](https://docs.aws.amazon.com/lambda/latest/dg/serverless_app.html) format
 - [ ] publish to [AWS Serverless Applicaton Repository](https://aws.amazon.com/tw/serverless/serverlessrepo/)
-- [ ] ASG/LifeCycle integration [#2](https://github.com/pahud/eks-lambda-drainer/issues/2)
+- [x] ASG/LifeCycle integration [#2](https://github.com/pahud/eks-lambda-drainer/issues/2)
 - [ ] add more samples
 
 
